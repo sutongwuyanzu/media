@@ -1,0 +1,12 @@
+const {spawn}=require('node:child_process');
+const path=require('node:path');
+const fs=require('node:fs');
+process.env.DUANWEN_TEST_PIPE=`\\\\.\\pipe\\duanwen-fill-test-${process.pid}`;
+const dir=path.join(__dirname,'test-fixture');fs.mkdirSync(dir,{recursive:true});
+const image=path.join(dir,'fixture.png');fs.writeFileSync(image,Buffer.alloc(1100000,42));
+const json=path.join(dir,'task.json');fs.writeFileSync(json,JSON.stringify({platform:'douyin',title:'测试',content:'测试正文',imagePaths:[image],tags:['测试'],declaration:'ai'}));
+const host=spawn(process.execPath,[path.join(__dirname,'native-host.cjs')],{stdio:['pipe','pipe','pipe']});
+let buf=Buffer.alloc(0),parts=[];
+host.stdout.on('data',chunk=>{buf=Buffer.concat([buf,chunk]);while(buf.length>=4&&buf.length>=4+buf.readUInt32LE(0)){const n=buf.readUInt32LE(0);const m=JSON.parse(buf.subarray(4,4+n));buf=buf.subarray(4+n);if(m.action==='fill_begin')parts=[];if(m.action==='fill_chunk')parts.push(m.data);if(m.action==='fill_end'){const task=JSON.parse(Buffer.from(parts.join(''),'base64').toString('utf8'));const ok=parts.length>1&&task.title==='测试'&&task.images[0].data.startsWith('data:image/png;base64,')&&task.tags[0]==='测试';const out=Buffer.from(JSON.stringify({id:m.id,ok}));const h=Buffer.alloc(4);h.writeUInt32LE(out.length);host.stdin.write(Buffer.concat([h,out]));}}});
+setTimeout(()=>{const cli=spawn(process.execPath,[path.join(__dirname,'bridge.cjs'),'fill',json]);let out='';cli.stdout.on('data',c=>out+=c);cli.on('exit',code=>{host.kill();try{if(code||!JSON.parse(out).ok)throw Error('fill roundtrip failed');console.log('chunked fill roundtrip passed');}catch(e){console.error(e.message);process.exitCode=1;}});},500);
+setTimeout(()=>{host.kill();process.exit(1)},8000).unref();

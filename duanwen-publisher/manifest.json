@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "图文同步助手",
+  "version": "0.2.1",
+  "description": "本地准备并同步图文至小红书和抖音",
+  "permissions": [
+    "storage",
+    "tabs",
+    "scripting",
+    "nativeMessaging",
+    "alarms"
+  ],
+  "host_permissions": [
+    "https://creator.xiaohongshu.com/*",
+    "https://creator.douyin.com/*"
+  ],
+  "action": {
+    "default_title": "图文同步助手"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}
